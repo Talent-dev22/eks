@@ -15,7 +15,7 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  cluster_name = "education-eks-${random_string.suffix.result}"
+  cluster_name = "dev22-eks-${random_string.suffix.result}"
 }
 
 resource "random_string" "suffix" {
@@ -27,13 +27,13 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.8.1"
 
-  name = "education-vpc"
+  name = "dev22-vpc"
 
-  cidr = "10.0.0.0/16"
+  cidr = "192.168.0.0/16"
   azs  = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnets  = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+  private_subnets = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24"]
+  public_subnets  = ["192.168.4.0/24", "192.168.5.0/24", "192.168.6.0/24"]
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
@@ -53,7 +53,7 @@ module "eks" {
   version = "20.8.5"
 
   cluster_name    = local.cluster_name
-  cluster_version = "1.29"
+  cluster_version = "1.30"
 
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
@@ -62,6 +62,10 @@ module "eks" {
     aws-ebs-csi-driver = {
       service_account_role_arn = module.irsa-ebs-csi.iam_role_arn
     }
+    coredns                = {}
+    kube-proxy             = {}
+    vpc-cni                = {}
+
   }
 
   vpc_id     = module.vpc.vpc_id
@@ -73,24 +77,42 @@ module "eks" {
   }
 
   eks_managed_node_groups = {
-    one = {
-      name = "node-group-1"
 
-      instance_types = ["t3.small"]
+    reactjs = {
+      name = "frontend"
 
-      min_size     = 1
-      max_size     = 3
-      desired_size = 2
-    }
+      instance_types = ["t2.micro"]
 
-    two = {
-      name = "node-group-2"
-
-      instance_types = ["t3.small"]
-
-      min_size     = 1
+      min_size     = 0
       max_size     = 2
       desired_size = 1
+      labels = {
+             app = "frontend"
+  	}
+    }
+    java = {
+      name = "java"
+
+      instance_types = ["t2.small"]
+
+      min_size     = 0
+      max_size     = 2
+      desired_size = 1
+      labels = {
+             app = "backend"
+        }
+    }
+   database = {
+      name = "database"
+
+      instance_types = ["t2.small"]
+
+      min_size     = 0
+      max_size     = 2
+      desired_size = 1
+      labels = {
+             app = "database"
+        }
     }
   }
 }
@@ -110,4 +132,5 @@ module "irsa-ebs-csi" {
   provider_url                  = module.eks.oidc_provider
   role_policy_arns              = [data.aws_iam_policy.ebs_csi_policy.arn]
   oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
-}
+} 
+
