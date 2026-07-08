@@ -1,5 +1,7 @@
 pipeline{
-    agent any
+    agent {
+        labels 'slave1'
+    }
 
     stages{
         stage('installation check'){
